@@ -1,0 +1,106 @@
+# AMR: I adapted this from a helpful example I found online.
+# TBD: Find the URL of the original example.
+#
+# This makes a generically formatted PDF and includes some important
+# things like:
+#   - Margins are not huge
+#   - Links are highlighted and clickable
+#   - Sections are numbered
+#   - Included source code is highlighted with pygments
+
+from: markdown
+to: latex
+
+#template: article
+standalone: true
+self-contained: true
+
+# note that structured variables may be specified:
+variables:
+  documentclass: article
+  geometry:
+    - top=1in
+    - left=1in
+    - bottom=1in
+    - right=1in
+    - heightrounded
+  linkcolor: blue
+  filecolor: blue
+  citecolor: blue
+  urlcolor: blue
+  toccolor: blue
+
+# Number sections, in addition to the label
+number-sections: true
+
+# Note that these take files, not their contents:
+#include-before-body: []
+#include-after-body: []
+#include-in-header: []
+#resource-path: ["."]
+
+#file-scope: false
+
+#data-dir:
+
+# ERROR, WARNING, or INFO
+# verbosity: WARNING
+#log-file: log.json
+
+# citeproc, natbib, or biblatex
+#cite-method: citeproc
+# part, chapter, section, or default:
+#top-level-division: chapter
+#abbreviations:
+
+# AMR: This does not work. Apparently these are "metadata" and not "variables"
+# metadata:
+#  - reference-section-title: References
+#  - link-citations: true
+
+pdf-engine: pdflatex
+pdf-engine-opts:
+- "-shell-escape"
+# you may also use pdf-engine-opt: with a single option
+# pdf-engine-opt: "-shell-escape"
+
+# auto, preserve, or none
+#wrap: auto
+#columns: 78
+#dpi: 72
+
+#extract-media: mediadir
+
+#table-of-contents: true
+#toc-depth: 2
+# a list of offsets at each heading level
+#number-offset: [0,0,0,0,0,0]
+# toc: may also be used instead of table-of-contents:
+#shift-heading-level-by: 1
+#section-divs: true
+#identifier-prefix: foo
+#title-prefix: ""
+#strip-empty-paragraphs: true
+# lf, crlf, or native
+#eol: lf
+#strip-comments: false
+#indented-code-classes: []
+#ascii: true
+#default-image-extension: ".jpg"
+
+# either a style name of a style definition file:
+highlight-style: pygments
+
+tab-stop: 4
+preserve-tabs: true
+
+#reference-links: true
+# block, section, or document
+#reference-location: block
+#atx-headers: false
+
+#fail-if-warnings: false
+#dump-args: false
+#ignore-args: false
+#trace: false
+

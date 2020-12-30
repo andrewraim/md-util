@@ -1,0 +1,77 @@
+#!/bin/bash
+
+PROG_NAME=$(basename $0)
+BIN_DIR=$(dirname $0)
+BASE_DIR=$(dirname $BIN_DIR)
+PANDOC_DIR=$BASE_DIR/pandoc
+
+print_help() {
+cat << EOF
+$PROG_NAME
+
+Use Pandoc to render Beamer slides (a PDF) from a Markdown file. Includes the
+following customizations:
+  - Use Pandoc config files from the md-util folder from which $PROG_NAME was
+    invoked: $BASE_DIR
+  - Enable pandoc-citeproc for citations to references
+  - Enable hyperlinking of citations
+  - Set slide-level=2 so that top-level headers render as title slides
+  - Give the references section a title
+
+Usage: $PROG_NAME [OPTIONS] input
+
+OPTIONS:
+  -h     Print this message and exit
+  -q     Quiet - do not echo Pandoc command
+EOF
+}
+
+QUIET=false
+
+# Get the options
+while getopts "hq" option; do
+	case $option in
+		h)
+			print_help
+			exit
+			;;
+		q)
+			QUIET=true
+			;;
+	esac
+done
+
+# Remaining argument should be the name of the markdown file for input
+shift $(($OPTIND - 1))
+INPUT=$1
+EXT=${INPUT##*.}
+
+# Name the output file
+if [ $INPUT != $EXT ]; then
+	# Replace extension of input file with "pdf"
+	OUTPUT=${INPUT%$EXT}pdf
+else
+	# There was no extension on input file, so add a ".pdf" to the output
+	OUTPUT=${INPUT}.pdf
+fi
+
+# To change reference styles, add something like this
+#--csl $PANDOC_DIR/csl/american-statistical-association.csl \
+
+read -r -d '' CMD << EOM
+pandoc $INPUT \
+  --data-dir=$PANDOC_DIR \
+  --filter pandoc-citeproc \
+  --slide-level=2 \
+  --metadata link-citations=true \
+  --metadata reference-section-title=References \
+  -f markdown -t beamer -s -o $OUTPUT
+EOM
+
+# Echo the pandoc command unless we're supposed to be quiet
+if [ $QUIET == "false" ]; then
+	echo $CMD
+fi
+
+$CMD
+
