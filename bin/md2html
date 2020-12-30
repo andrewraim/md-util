@@ -1,20 +1,72 @@
 #!/bin/bash
 
-BASE_DIR=$(dirname $0)
-PANDOC_DIR=$BASE_DIR/../pandoc
+PROG_NAME=$(basename $0)
+BIN_DIR=$(dirname $0)
+BASE_DIR=$(dirname $BIN_DIR)
+PANDOC_DIR=$BASE_DIR/pandoc
 
+print_help() {
+cat << EOF
+$PROG_NAME
+
+Use Pandoc to render an HTML document from a Markdown file. Includes the
+following customizations:
+  - Use Pandoc config files from the md-util folder from which $PROG_NAME was
+    invoked: $BASE_DIR
+  - Enable pandoc-citeproc for citations to references
+  - Enable hyperlinking of citations
+  - Give the references section a title
+
+Usage: $PROG_NAME [OPTIONS] input
+
+OPTIONS:
+  -h     Print this message and exit
+  -q     Quiet - do not echo Pandoc command
+EOF
+}
+
+QUIET=false
+
+# Get the options
+while getopts "hq" option; do
+	case $option in
+		h)
+			print_help
+			exit
+			;;
+		q)
+			QUIET=true
+			;;
+	esac
+done
+
+# Remaining argument should be the name of the markdown file for input
+shift $(($OPTIND - 1))
 INPUT=$1
-OUTPUT=${INPUT%md}html
+EXT=${INPUT##*.}
 
-# To change reference styles, add something like this
-#--csl $PANDOC_DIR/csl/american-statistical-association.csl \
+# Name the output file
+if [ $INPUT != $EXT ]; then
+	# Replace extension of input file with "html"
+	OUTPUT=${INPUT%$EXT}html
+else
+	# There was no extension on input file, so add a ".html" to the output
+	OUTPUT=${INPUT}.html
+fi
 
-#--defaults=my-latex \
-
+read -r -d '' CMD << EOM
 pandoc $INPUT \
   --data-dir=$PANDOC_DIR \
   --filter pandoc-citeproc \
   --metadata link-citations=true \
   --metadata reference-section-title=References \
   -f markdown -t html -s -o $OUTPUT
+EOM
+
+# Echo the pandoc command unless we're supposed to be quiet
+if [ $QUIET == "false" ]; then
+	echo $CMD
+fi
+
+$CMD
 
