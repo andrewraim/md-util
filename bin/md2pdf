@@ -65,7 +65,7 @@ pandoc $INPUT \
   --data-dir=$PANDOC_DIR \
   --defaults=my-latex \
   --template=post.latex \
-  --filter pandoc-citeproc \
+  --citeproc \
   --metadata link-citations=true \
   --metadata reference-section-title=References \
   -f markdown -t latex -s -o $OUTPUT
