@@ -61,7 +61,7 @@ fi
 read -r -d '' CMD << EOM
 pandoc $INPUT \
   --data-dir=$PANDOC_DIR \
-  --filter pandoc-citeproc \
+  --citeproc
   --metadata link-citations=true \
   --metadata reference-section-title=References \
   -f markdown -t html -s -o $OUTPUT
