@@ -60,11 +60,13 @@ else
 	OUTPUT=${INPUT}.pdf
 fi
 
+# Removed the following option for now
+# --template=post.latex \
+
 read -r -d '' CMD << EOM
 pandoc $INPUT \
   --data-dir=$PANDOC_DIR \
   --defaults=my-latex \
-  --template=post.latex \
   --citeproc \
   --metadata link-citations=true \
   --metadata reference-section-title=References \
