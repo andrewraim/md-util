@@ -16,3 +16,4 @@ install:
 uninstall:
 	printf "%s\n" $(SCRIPTS) | xargs -I'@' rm -f $(BIN)/@
 	rm -rf $(SHARE)/pandoc
+
