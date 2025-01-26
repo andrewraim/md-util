@@ -2,6 +2,9 @@
 
 PROG_NAME=$(basename $0)
 
+# Use this path for temp directories.
+TMP_BASE=/dev/shm
+
 # This is the location of pandoc template contents.
 PANDOC_DIR=$HOME/.local/share/pandoc
 
@@ -20,6 +23,7 @@ Usage: $PROG_NAME [OPTIONS] input
 
 OPTIONS:
   -h     Print this message and exit
+  -p     Preview - make temporary output and view with xdg-open
   -q     Quiet - do not echo Pandoc command
 EOF
 }
@@ -27,11 +31,14 @@ EOF
 QUIET=false
 
 # Get the options
-while getopts "hq" option; do
+while getopts "hpq" option; do
 	case $option in
 		h)
 			print_help
 			exit
+			;;
+		p)
+			TEMPDIR=$(mktemp -d -p $TMP_BASE)
 			;;
 		q)
 			QUIET=true
@@ -58,6 +65,14 @@ else
 	OUTPUT=${INPUT}.html
 fi
 
+## If preview is requested, output should go to a temporary area.
+## 1. Grab just the filename part of the path.
+## 2. Create a temp folder and append the filename.
+if [ -n "$TEMPDIR" ]; then
+	BASENAME=$(basename ${OUTPUT})
+	OUTPUT="${TEMPDIR}/${BASENAME}"
+fi
+
 read -r -d '' CMD << EOM
 pandoc $INPUT \
   --data-dir=$PANDOC_DIR \
@@ -73,4 +88,20 @@ if [ $QUIET == "false" ]; then
 fi
 
 $CMD
+
+if [ -n "$TEMPDIR" ]; then
+	if [ $QUIET == "false" ]; then
+		xdg-open $OUTPUT
+	else
+		xdg-open $OUTPUT > /dev/null 2>&1
+	fi
+
+	rm -f $OUTPUT
+	rmdir $TEMPDIR
+fi
+
+if [ -d "$TEMPDIR" ]; then
+	echo "Failed to remove ${TEMPDIR}"
+	return 1
+fi
 
