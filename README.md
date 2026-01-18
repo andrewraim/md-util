@@ -1,12 +1,9 @@
+> **This README is out of date. Updates coming soon.**
+
 # Introduction
 
 This repo contains several command line utilities that use
-[Pandoc](https://pandoc.org) to render markdown files into customized formats:
-
-- `md2pdf`: a PDF format for informal notes.
-- `md2html`: an HTML format for informal notes. 
-- `md2beamer`: a PDF format suitable for informal slides.
-
+[Pandoc](https://pandoc.org) to render markdown files into customized formats.
 There are many excellent markdown editors that render and preview documents as
 you edit them. The tools in this repo are especially intended for use in a
 minimal environment with your preferred text editor and document viewer.
@@ -14,9 +11,13 @@ minimal environment with your preferred text editor and document viewer.
 The document formats are currently somewhat specific to my preferences. Feel
 free to take them as a starting point and customize for your own use.
 
+- A PDF format for informal notes.
+- A PDF format suitable for informal slides.
+- An HTML format for informal notes. 
+
 Pandoc is document conversion program which and render a variety of formats
 like Latex documents, web pages, and slides from markdown files. Pandoc is very
-flexible and controlled entirely through the command line, but customizing the
+flexible and usable entirely through the command line, but customizing the
 output can be somewhat involved. 
 
 # Installation
@@ -35,20 +36,18 @@ bash configuration file to make it persist in subsequent terminal sessions.
 $ export PATH=$HOME/.local/bin:$PATH
 ```
 
-This should make some new commands accessible.
+This should make the new command accessible.
 
 ```bash
-$ md2beamer examples/slides.md
-$ md2html examples/document.md
-$ md2pdf examples/document.md
+$ mdrender -f beamer examples/slides.md
 ```
 
-Run the commands with `-h` for further information.
+Run the command with `-h` for further information.
 
 # Previewing
 
-Each script has a preview mode that opens the PDF or HTML output in a temporary
-location and opens a viewer with `xdg-open`.
+The script has a preview mode that renders the PDF or HTML output to a
+temporary location and opens a viewer with `xdg-open`.
 
 The viewer can be configured using the `xdg-mime` command. For example, here we
 set two particular applications PDF and HTML files. Additionals details are
