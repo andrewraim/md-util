@@ -10,8 +10,9 @@ EXIT_BAD_CLEANUP=5
 
 PROGNAME=$(basename $0)
 
-# Use this path for temp directories.
-TMP_BASE=/dev/shm
+# Default path for temp materials. Use mktemp to find out where this is.
+TMP_DRYRUN=$(mktemp -u)
+TMP_BASE=$(dirname ${TMP_DRYRUN})
 
 # This is the location of pandoc template contents.
 PANDOC_DIR=$HOME/.local/share/pandoc
@@ -36,9 +37,10 @@ print_help()
 
 	OPTIONS:
 		-h     Print this message and exit
-		-f     Format - one of 'note', 'beamer', or 'html'
-		-p     Preview - make temporary output and view with xdg-open
-		-v     Verbose - echo Pandoc command
+		-f     Format: one of 'note', 'beamer', or 'html'
+		-p     Preview: open viewer with xdg-open
+		-t     Base directory for temporary materials (default: ${TMP_BASE})
+		-v     Verbose: echo Pandoc command
 	EOF
 }
 
@@ -133,11 +135,11 @@ html()
 
 # ----- Begin Processing -----
 
-USETEMPDIR=false
+USE_TEMP_DIR=false
 VERBOSE=false
 
 # Get the options
-while getopts "hf:pv" option; do
+while getopts "hf:pt:v" option; do
 	case $option in
 		h)
 			print_help
@@ -147,7 +149,10 @@ while getopts "hf:pv" option; do
 			FORMAT=${OPTARG}
 			;;
 		p)
-			USETEMPDIR=true
+			USE_TEMP_DIR=true
+			;;
+		t)
+			TEMP_BASE=${OPTARG}
 			;;
 		v)
 			VERBOSE=true
@@ -167,12 +172,13 @@ fi
 # Expand to absolute path
 MDPATH=$(realpath $MDFILE)
 
-## If preview is requested, output should go to a temporary area.
-## 1. Grab just the filename part of the path.
-## 2. Create a temp folder which is (almost) unique to the file's absolute path
-## 3. Append the filename.
-if [ $USETEMPDIR == "true" ]; then
-	HASH=$(md5sum $MDPATH | cut -d' ' -f1 | cut -c1-8)
+# If preview is requested, output should go to a temporary area. Grab just the
+# filename part of the path. Create a temp folder which is (almost) unique to
+# the file's absolute path and the username.
+#
+# Otherwise output goes into cwd.
+if [ $USE_TEMP_DIR == "true" ]; then
+	HASH=$(echo "${USER}-${MDPATH}" | md5sum - | cut -d' ' -f1 | cut -c1-8)
 	OUTDIR="${TEMP_BASE}/${HASH}"
 else
 	OUTDIR="${PWD}"
