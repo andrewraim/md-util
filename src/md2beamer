@@ -74,6 +74,10 @@ if [ -n "$TEMPDIR" ]; then
 	OUTPUT="${TEMPDIR}/${BASENAME}"
 fi
 
+# Change to dirname of the input file so we can use its relative path to find
+# bibliography and any other resouces.
+cd $(dirname $INPUT)
+
 # To change reference styles, add something like this
 # --csl $PANDOC_DIR/csl/american-statistical-association.csl \
 

@@ -12,9 +12,11 @@ print_help() {
 cat << EOF
 $PROG_NAME
 
-Use Pandoc to render an HTML document from a Markdown file. Includes the
+Use Pandoc to render a Latex document (PDF) from a Markdown file. Includes the
 following customizations:
   - Use Pandoc config files from the folder $PANDOC_DIR
+  - Use a "post" document format, which is suitable for informal posts rather
+    than formal documents.
   - Enable pandoc-citeproc for citations to references
   - Enable hyperlinking of citations
   - Give the references section a title
@@ -58,11 +60,11 @@ fi
 
 # Name the output file
 if [ $INPUT != $EXT ]; then
-	# Replace extension of input file with "html"
-	OUTPUT=${INPUT%$EXT}html
+	# Replace extension of input file with "pdf"
+	OUTPUT=${INPUT%$EXT}pdf
 else
-	# There was no extension on input file, so add a ".html" to the output
-	OUTPUT=${INPUT}.html
+	# There was no extension on input file, so add a ".pdf" to the output
+	OUTPUT=${INPUT}.pdf
 fi
 
 ## If preview is requested, output should go to a temporary area.
@@ -73,13 +75,20 @@ if [ -n "$TEMPDIR" ]; then
 	OUTPUT="${TEMPDIR}/${BASENAME}"
 fi
 
+# Change to dirname of the input file so we can use its relative path to find
+# bibliography and any other resouces.
+cd $(dirname $INPUT)
+
+# Removed the following option for now
+# --template=post.latex \
 read -r -d '' CMD << EOM
 pandoc $INPUT \
   --data-dir=$PANDOC_DIR \
-  --citeproc
+  --defaults=my-latex \
+  --citeproc \
   --metadata link-citations=true \
   --metadata reference-section-title=References \
-  -f markdown -t html -s -o $OUTPUT
+  -f markdown -t latex -s -o $OUTPUT
 EOM
 
 # Echo the pandoc command unless we're supposed to be quiet

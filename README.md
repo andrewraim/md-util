@@ -1,28 +1,33 @@
 # Introduction
 
-[Pandoc](https://pandoc.org) is document conversion program which can take
-markdown and render things like Latex documents, web pages, and slides.
-However, it can be somewhat involved to tailor the outputs to your liking. In
-my experience, tools like Rstudio provide a more friendly front-end to the
-functionality of Pandoc. However, one appealing aspect of Pandoc is its
-minimalism; it can be paired with your preferred text editor and viewers, and
-used entirely in a terminal.
+This repo contains several command line utilities that use
+[Pandoc](https://pandoc.org) to render markdown files into customized formats:
 
-This project contains some utilities to directly use Pandoc from a terminal and
-produce output close to what I personally want. This might be helpful if you
-want to use a minimal environment consisting of a shell, a text editor like
-Vim or Emacs, and a PDF or HTML viewer. Feel free to take it as a starting
-point and customize for your own use.
+- `md2pdf`: a PDF format for informal notes.
+- `md2html`: an HTML format for informal notes. 
+- `md2beamer`: a PDF format suitable for informal slides.
+
+There are many excellent markdown editors that render and preview documents as
+you edit them. The tools in this repo are especially intended for use in a
+minimal environment with your preferred text editor and document viewer.
+
+The document formats are currently somewhat specific to my preferences. Feel
+free to take them as a starting point and customize for your own use.
+
+Pandoc is document conversion program which and render a variety of formats
+like Latex documents, web pages, and slides from markdown files. Pandoc is very
+flexible and controlled entirely through the command line, but customizing the
+output can be somewhat involved. 
 
 # Installation
 
-First clone the project as usual.
+Clone the repo.
 
 ```bash
 $ git clone https://github.com/andrewraim/md-util
 ```
 
-Running `make` installs the scripts to `~/.local`. To invoke the scripts as
+Run `make` to install the scripts to `~/.local`. To invoke the scripts as
 commands, add `~/.local/bin` to your `$PATH` as follows. Include it in your
 bash configuration file to make it persist in subsequent terminal sessions.
 
@@ -42,8 +47,8 @@ Run the commands with `-h` for further information.
 
 # Previewing
 
-Each script has a preview mode that places the PDF or HTML output into a
-temporary location and opens a viewer with `xdg-open`.
+Each script has a preview mode that opens the PDF or HTML output in a temporary
+location and opens a viewer with `xdg-open`.
 
 The viewer can be configured using the `xdg-mime` command. For example, here we
 set two particular applications PDF and HTML files. Additionals details are
@@ -81,4 +86,12 @@ Name=lynx
 Comment=A text web browser
 Exec=lynx
 ```
+
+# Also See
+
+- [Glow](https://github.com/charmbracelet/glow): A terminal-based markdown
+  reader that does not require a graphical environment.
+- [Quarto](https://quarto.org): A markdown-based documentation system that can
+  render dynamic documents with embedded R, Python, and Julia code.
+
 

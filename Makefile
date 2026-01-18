@@ -4,7 +4,7 @@ SHARE := $(DEST)/share
 
 .PHONY: install uninstall
 
-SCRIPTS := bin/md2beamer bin/md2html bin/md2pdf
+SCRIPTS := src/md2beamer src/md2html src/md2pdf
 
 install:
 	mkdir -p $(BIN)

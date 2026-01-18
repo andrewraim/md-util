@@ -1,6 +1,8 @@
 ---
 title: Example Slides
 author: Your Name
+date: 1970-01-01
+bibliography: references.bib
 ---
 
 ## Introduction
@@ -11,11 +13,22 @@ author: Your Name
 
 ## Literature Review
 
-- There is no literature review for this presentation.
+- Here is math using Latex [@Lamport1986]:
+
+$$
+f(x) = x^2.
+$$
+
+- Here is code in R [@Rcore].
+
+```r
+for (i in 1:n) {
+    cat("Hello world", i, "\n")
+}
+```
 
 ## Conclusions
 
-- In conclusion, there has been no literature review.
-- In future work, we will consider adding a slide.
+- Here are conclusions.
 - Thank you.
 
