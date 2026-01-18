@@ -3,6 +3,14 @@ title: An Example Document
 author: Your Name
 date: 1970-01-01
 bibliography: references.bib
+tags:
+  - example
+  - markdown
+  - computing
+  - R
+  - Latex
+  - Bash
+  - Quarto
 ---
 
 # Introduction
