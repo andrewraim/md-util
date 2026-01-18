@@ -1,0 +1,224 @@
+#!/bin/bash
+
+# Exit codes
+EXIT_SUCCESS=0
+EXIT_MISSING_MDFILE=1
+EXIT_MISSING_FORMAT=2
+EXIT_BAD_FORMAT=3
+EXIT_PANDOC=4
+EXIT_BAD_CLEANUP=5
+
+PROGNAME=$(basename $0)
+
+# Use this path for temp directories.
+TMP_BASE=/dev/shm
+
+# This is the location of pandoc template contents.
+PANDOC_DIR=$HOME/.local/share/pandoc
+
+print_help()
+{
+	cat <<- EOF
+	$PROGNAME: Render a document from a markdown file.
+
+	Formats:
+	- 'note': PDF document suitable for informal documents.
+	- 'beamer' PDF slides using Beamer.
+	- 'html': Standalone HTML document.
+
+	Includes the following customizations:
+	  - Use Pandoc config files from the folder $PANDOC_DIR
+	  - Enable pandoc-citeproc for citations to references
+	  - Enable hyperlinking of citations
+	  - Give the references section a title
+
+	Usage: $PROGNAME [OPTIONS] input
+
+	OPTIONS:
+		-h     Print this message and exit
+		-f     Format - one of 'note', 'beamer', or 'html'
+		-p     Preview - make temporary output and view with xdg-open
+		-v     Verbose - echo Pandoc command
+	EOF
+}
+
+note()
+{
+	local infile=$1
+	local outdir=$2
+
+	local ext=${infile##*.}
+	local base=$(basename $infile)
+
+	# Name the output file
+	if [ $base != $ext ]; then
+		# Replace extension of input file with "pdf"
+		OUTFILE=${outdir}/${base%$ext}pdf
+	else
+		# There was no extension on input file, so add a ".pdf" to the output
+		OUTFILE=${outdir}/${base}.pdf
+	fi
+
+	read -r -d '' CMD <<- EOM
+	pandoc $infile \
+	  --data-dir=$PANDOC_DIR \
+	  --defaults=my-latex \
+	  --citeproc \
+	  --metadata link-citations=true \
+	  --metadata reference-section-title=References \
+	  -f markdown -t latex -s -o $OUTFILE
+	EOM
+
+	# Outputs: CMD, OUTFILE
+}
+
+beamer()
+{
+	local infile=$1
+	local outdir=$2
+
+	local ext=${infile##*.}
+	local base=$(basename $infile)
+
+	# Name the output file
+	if [ $base != $ext ]; then
+		# Replace extension of input file with "pdf"
+		OUTFILE=${outdir}/${base%$ext}pdf
+	else
+		# There was no extension on input file, so add a ".pdf" to the output
+		OUTFILE=${outdir}/${base}.pdf
+	fi
+
+	read -r -d '' CMD <<- EOM
+	pandoc $infile \
+	  --data-dir=$PANDOC_DIR \
+	  --citeproc
+	  --slide-level=2 \
+	  --metadata link-citations=true \
+	  --metadata reference-section-title=References \
+	  -f markdown -t beamer -s -o $OUTFILE
+	EOM
+
+	# Outputs: CMD, OUTFILE
+}
+
+html()
+{
+	local infile=$1
+	local outdir=$2
+
+	local ext=${infile##*.}
+	local base=$(basename $infile)
+
+	# Name the output file
+	if [ $base != $ext ]; then
+		# Replace extension of input file with "html"
+		OUTFILE=${outdir}/${base%$ext}html
+	else
+		# There was no extension on input file, so add a ".html" to the output
+		OUTFILE=${outdir}/${base}.html
+	fi
+
+	read -r -d '' CMD <<- EOM
+	pandoc $infile \
+	  --data-dir=$PANDOC_DIR \
+	  --citeproc
+	  --metadata link-citations=true \
+	  --metadata reference-section-title=References \
+	  -f markdown -t html -s -o $OUTFILE
+	EOM
+
+	# Outputs: CMD, OUTFILE
+}
+
+# ----- Begin Processing -----
+
+VERBOSE=false
+
+# Get the options
+while getopts "hf:pv" option; do
+	case $option in
+		h)
+			print_help
+			exit ${EXIT_SUCCESS}
+			;;
+		f)
+			FORMAT=${OPTARG}
+			;;
+		p)
+			TEMPDIR=$(mktemp -d -p $TMP_BASE)
+			;;
+		v)
+			VERBOSE=true
+			;;
+	esac
+done
+
+# Remaining argument should be the name of the markdown file for input
+shift $(($OPTIND - 1))
+MDFILE=$1
+
+if [ -z "$MDFILE" ]; then
+	echo "No input file specified"
+	exit ${EXIT_MISSING_MDFILE}
+fi
+
+## If preview is requested, output should go to a temporary area.
+## 1. Grab just the filename part of the path.
+## 2. Create a temp folder and append the filename.
+if [ -n "$TEMPDIR" ]; then
+	OUTDIR="${TEMPDIR}"
+else
+	OUTDIR="${PWD}"
+fi
+
+if [ -z "$FORMAT" ]; then
+	echo "No output format specified"
+	exit ${EXIT_MISSING_FORMAT}
+fi
+
+case ${FORMAT} in
+	note)
+		note ${MDFILE} ${OUTDIR}
+		;;
+	beamer)
+		beamer ${MDFILE} ${OUTDIR}
+		;;
+	html)
+		html ${MDFILE} ${OUTDIR}
+		;;
+	*)
+		echo "Format ${FORMAT} not recognized"
+		exit ${EXIT_BAD_FORMAT}
+		;;
+esac
+
+# Echo the pandoc command if verbose option was enabled
+if [ $VERBOSE == "true" ]; then
+	echo $CMD
+fi
+
+# Change to dirname of the input file so we can use its relative path to find
+# bibliography and any other resouces.
+cd $(dirname $MDFILE)
+
+$CMD || {
+	exit ${EXIT_PANDOC}
+}
+
+if [ -n "$TEMPDIR" ]; then
+	if [ $VERBOSE == "true" ]; then
+		xdg-open $OUTFILE
+	else
+		xdg-open $OUTFILE > /dev/null 2>&1
+	fi
+
+	rm -f $OUTFILE
+	rmdir $TEMPDIR
+fi
+
+if [ -d "$TEMPDIR" ]; then
+	echo "Failed to remove ${TEMPDIR}"
+	return EXIT_BAD_CLEANUP
+fi
+
