@@ -21,10 +21,13 @@ TEMP_BASE=$(dirname ${TEMP_DRYRUN})
 PANDOC_DIR=$HOME/.local/share/pandoc
 
 # Default configuration path
-CONFIG_PATH="${PROGNAME}.conf"
+CONFIG_PATH="./${PROGNAME}.conf"
 
 print_help()
 {
+	# TBD: generate the list of formats from the config file, if it's not too
+	# difficult ...
+
 	cat <<- EOF
 	$PROGNAME: Render a markdown document with Pandoc.
 
@@ -43,16 +46,18 @@ print_help()
 
 	OPTIONS:
 	  -h	   Print this message and exit
-	  -v	   Verbose: echo Pandoc commands
+	  -v	   Verbose mode, includes echoing Pandoc commands
 	  -p	   Toggle preview (default: true in watch mode and false otherwise)
-	  -f TYPE  Format: one of 'note', 'beamer', or 'html'
-	  -t DIR   Base directory for temporary materials in watch mode (default:
-		       ${TEMP_BASE}). When not in watch mode, output is written to cwd.
+	  -f TYPE  Format: one of the format labels listed above
+	  -t DIR   Base directory for temporary materials in watch mode
+	           (default: ${TEMP_BASE}). When not in watch mode, output is
+	           written to cwd.
 	  -c PATH  Path to configuration file (default: ${CONFIG_PATH})
+	  -w       Enable watch mode
 	EOF
 }
 
-## Lightly adapted from:
+## This function was adapted from a Reddit comment:
 ## https://www.reddit.com/r/bash/comments/s6crjo/comment/ht3vrh1
 read_config()
 {
@@ -116,13 +121,13 @@ render()
 	# name the output file
 	if [ $base != $src_ext ]; then
 		# replace extension of input file with "pdf"
-		outfile=${outdir}/${base%$src_ext}${dest_ext}
+		OUTFILE=${outdir}/${base%$src_ext}${dest_ext}
 	else
 		# there was no extension on input file, so add a ".pdf" to the output
-		outfile=${outdir}/${base}.${dest_ext}
+		OUTFILE=${outdir}/${base}.${dest_ext}
 	fi
 
-	cmd="pandoc $mdpath $pandoc_flags -o $outfile"
+	cmd="pandoc $mdpath $pandoc_flags -o $OUTFILE"
 
 	# Echo the pandoc command if verbose option was enabled
 	if [ $verbose == "true" ]; then
@@ -132,125 +137,26 @@ render()
 	eval $cmd || {
 		exit ${EXIT_PANDOC_ERROR}
 	}
-}
 
-render_note_cmd()
-{
-	local infile=$1
-	local outdir=$2
-
-	local ext=${infile##*.}
-	local base=$(basename $infile)
-
-	# name the output file
-	if [ $base != $ext ]; then
-		# replace extension of input file with "pdf"
-		outfile=${outdir}/${base%$ext}pdf
-	else
-		# there was no extension on input file, so add a ".pdf" to the output
-		outfile=${outdir}/${base}.pdf
-	fi
-
-	read -r -d '' cmd <<- eom
-	pandoc $infile \
-	  --data-dir=$pandoc_dir \
-	  --defaults=my-latex \
-	  --citeproc \
-	  --metadata link-citations=true \
-	  --metadata reference-section-title=references \
-	  -f markdown -t latex -s -o $outfile
-	eom
-
-	# outputs: cmd, outfile
-}
-
-render_beamer_cmd()
-{
-	local infile=$1
-	local outdir=$2
-
-	local ext=${infile##*.}
-	local base=$(basename $infile)
-
-	# Name the output file
-	if [ $base != $ext ]; then
-		# Replace extension of input file with "pdf"
-		OUTFILE=${outdir}/${base%$ext}pdf
-	else
-		# There was no extension on input file, so add a ".pdf" to the output
-		OUTFILE=${outdir}/${base}.pdf
-	fi
-
-	read -r -d '' CMD <<- EOM
-	pandoc $infile \
-	  --data-dir=$PANDOC_DIR \
-	  --citeproc
-	  --slide-level=2 \
-	  --metadata link-citations=true \
-	  --metadata reference-section-title=References \
-	  -f markdown -t beamer -s -o $OUTFILE
-	EOM
-
-	# Outputs: CMD, OUTFILE
-}
-
-render_html_cmd()
-{
-	local infile=$1
-	local outdir=$2
-
-	local ext=${infile##*.}
-	local base=$(basename $infile)
-
-	# Name the output file
-	if [ $base != $ext ]; then
-		# Replace extension of input file with "html"
-		OUTFILE=${outdir}/${base%$ext}html
-	else
-		# There was no extension on input file, so add a ".html" to the output
-		OUTFILE=${outdir}/${base}.html
-	fi
-
-	read -r -d '' CMD <<- EOM
-	pandoc $infile \
-	  --data-dir=$PANDOC_DIR \
-	  --citeproc
-	  --metadata link-citations=true \
-	  --metadata reference-section-title=References \
-	  -f markdown -t html -s -o $OUTFILE
-	EOM
-
-	# Outputs: CMD, OUTFILE
+	# Output: OUTFILE
 }
 
 preview()
 {
-	local file=$1
-	local verbose=$2
-	local ext=${file##*.}
-	local detached=false
+	local infile=$1
+	local viewer_cmd=$2
+	local verbose=$3
 
-	case ${ext} in
-		pdf)
-			viewer_cmd="zathura ${file}"
-			detached=true
-			;;
-		html)
-			viewer_cmd="chromium ${file}"
-			;;
-		*)
-			echo "No viewer defined for extension ${ext}"
-			exit ${EXIT_NO_VIEWER}
-			;;
-	esac
+	# Replace '%s' placeholder with filename
+	viewer_cmd=${viewer_cmd//%s/$infile}
 
+	# If not verbose, capture viewer output to /dev/null
 	if [ $verbose == "false" ]; then
 		viewer_cmd="${viewer_cmd} > /dev/null 2>&1"
 	fi
 
-	if [ $detached == "true" ]; then
-		viewer_cmd="nohup ${viewer_cmd} &"
-	fi
+	# Viewer should run as a detached process
+	viewer_cmd="nohup ${viewer_cmd} &"
 
 	eval ${viewer_cmd} || {
 		echo "Viewer command failed: ${viewer_cmd}"
@@ -258,8 +164,9 @@ preview()
 	}
 }
 
+#-----------------------------
 # ----- Begin Processing -----
-
+#-----------------------------
 PREVIEW_TOGGLE=false
 VERBOSE=false
 WATCH_MODE=false
@@ -317,10 +224,18 @@ for key in "${!config[@]}"; do
 	config_main["$key"]="${config[$key]}"
 done
 
-# TBD: check for default format in config if not specified on CLI
+echo
+echo "main keys: ${!config_main[@]}"
+echo "main values: ${config_main[@]}"
+
+# Check for default format in config if not specified on CLI
 if [ -z "$FORMAT" ]; then
-	echo "No output format specified"
-	exit ${EXIT_MISSING_FORMAT}
+	if [ "${config_main["default"]}" != "" ]; then
+		FORMAT=${config_main["default"]}
+	else
+		echo "No output format specified and no default set"
+		exit ${EXIT_MISSING_FORMAT}
+	fi
 fi
 
 # Read format config section and copy elements to array config_main
@@ -333,16 +248,6 @@ for key in "${!config[@]}"; do
 	echo "config_format key: '$key'"
 done
 
-#echo
-#echo "${config[@]}"
-#echo "FLAGS?"
-#flags=${config["flags"]}
-#echo "$flags: $flags"
-#echo "keys: ${!config[@]}"
-#echo "values: ${config[@]}"
-echo
-echo "main keys: ${!config_main[@]}"
-echo "main values: ${config_main[@]}"
 echo
 echo "format keys: ${!config_format[@]}"
 echo "format values: ${config_format[@]}"
@@ -353,6 +258,7 @@ DEST_EXT=${config_format["ext"]}
 PANDOC_FLAGS="${config_main["flags"]} ${config_format["flags"]}"
 INTERVAL_PEEK=${config_main["peek"]}
 INTERVAL_REST=${config_main["rest"]}
+VIEWER_CMD=${config_format["view"]}
 
 echo "DEST_EXT: '${DEST_EXT}'"
 echo "PANDOC_FLAGS: '${PANDOC_FLAGS}'"
@@ -390,12 +296,12 @@ fi
 
 # Open previewer if the option was given.
 if [ $PREVIEW == "true" ]; then
-	preview ${OUTFILE} ${VERBOSE}
+	preview "${OUTFILE}" "${VIEWER_CMD}" "${VERBOSE}"
 fi
 
 # ----- Watch for Changes -----
 if [ $WATCH_MODE == "false" ]; then
-	exit EXIT_SUCCESS
+	exit ${EXIT_SUCCESS}
 fi
 
 THEN="$(stat -c "%Y" "${MDPATH}")"
