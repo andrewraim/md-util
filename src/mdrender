@@ -1,60 +1,45 @@
 #!/bin/bash
 
-# TBD:
-# - Use consistent capitalization
-
 # Exit codes
-EXIT_SUCCESS=0
-EXIT_MISSING_MDFILE=255
-EXIT_MISSING_FORMAT=254
-EXIT_BAD_FORMAT=253
-EXIT_PANDOC_ERROR=252
-EXIT_BAD_CLEANUP=251
-EXIT_BAD_OUTDIR=250
-EXIT_NO_VIEWER=249
-EXIT_BAD_VIEWER=248
+exit_success=0
+exit_missing_mdfile=255
+exit_missing_format=254
+exit_bad_pandoc=252
+exit_bad_outdir=250
+exit_bad_viewer=248
 
-PROGNAME=$(basename $0)
-VERSION="0.1.0"
+progname=$(basename $0)
+version="0.1.0"
 
 # Default path for temp materials. Use mktemp to find out where this is.
-TEMP_DRYRUN=$(mktemp -u)
-TEMP_BASE=$(dirname ${TEMP_DRYRUN})
-
-# This is the location of pandoc template contents.
-PANDOC_DIR=$HOME/.local/share/pandoc
+temp_dryrun=$(mktemp -u)
+temp_base=$(dirname ${temp_dryrun})
 
 # Default configuration path
-CONFIG_PATH="./${PROGNAME}.conf"
+config_path="./${progname}.conf"
 
 print_help()
 {
-	echo "$PROGNAME $VERSION: Render a markdown document with Pandoc."
+	echo "$progname $version: Render a markdown document with Pandoc."
 	echo ""
 	echo "Formats:"
-	print_formats ${CONFIG_PATH}
+	print_formats ${config_path}
 	echo ""
 
 	cat <<- EOF
-	Includes the following customizations for Pandoc:
-	  - Use Pandoc config files from the folder $PANDOC_DIR
-	  - Enable pandoc-citeproc for citations to references
-	  - Enable hyperlinking of citations
-	  - Give the references section a title
-
-	Usage: $PROGNAME [OPTIONS] input
+	Usage: $progname [OPTIONS] input
 
 	OPTIONS:
-	  -h	   Print this message and exit
-	  -v       Print version and exit
-	  -V	   Verbose: includes echoing Pandoc commands
-	  -p	   Toggle preview (default: true in watch mode and false otherwise)
 	  -f TYPE  Format: one of the format labels listed above
-	  -t DIR   Base directory for temporary materials in watch mode
-	           (default: ${TEMP_BASE}). When not in watch mode, output is
-	           written to cwd.
-	  -c PATH  Path to configuration file (default: ${CONFIG_PATH})
 	  -w       Enable watch mode
+	  -p	   Toggle preview (default: true in watch mode and false otherwise)
+	  -c PATH  Path to configuration file (default: ${config_path})
+	  -t DIR   Base directory for temporary materials in watch mode
+	           (default: ${temp_base}). When not in watch mode, output is
+	           written to cwd.
+	  -V	   Verbose: includes echoing Pandoc commands
+	  -h	   Print usage and exit
+	  -v       Print VERSION and exit
 	EOF
 }
 
@@ -81,8 +66,6 @@ print_formats()
 			echo "  - ${section}: ${value}"
 		fi
 	done < ${infile}
-
-	# Output: FORMATS
 }
 
 ## This function was adapted from a Reddit comment:
@@ -130,8 +113,6 @@ read_config()
 			# echo "N : $name => $value"
 			config[$name]="$value"
 		fi
-
-		# Need to read continuation lines (and maybe add backslash, or not have them)
 	done < ${infile}
 }
 
@@ -149,13 +130,13 @@ render()
 	# name the output file
 	if [ $base != $src_ext ]; then
 		# replace extension of input file with "pdf"
-		OUTFILE=${outdir}/${base%$src_ext}${dest_ext}
+		outfile=${outdir}/${base%$src_ext}${dest_ext}
 	else
 		# there was no extension on input file, so add a ".pdf" to the output
-		OUTFILE=${outdir}/${base}.${dest_ext}
+		outfile=${outdir}/${base}.${dest_ext}
 	fi
 
-	cmd="pandoc $mdpath $pandoc_flags -o $OUTFILE"
+	local cmd="pandoc $mdpath $pandoc_flags -o $outfile"
 
 	# Echo the pandoc command if verbose option was enabled
 	if [ $verbose == "true" ]; then
@@ -163,10 +144,10 @@ render()
 	fi
 
 	eval $cmd || {
-		exit ${EXIT_PANDOC_ERROR}
+		exit ${exit_bad_pandoc}
 	}
 
-	# Output: OUTFILE
+	# Output: outfile
 }
 
 preview()
@@ -188,16 +169,16 @@ preview()
 
 	eval ${viewer_cmd} || {
 		echo "Viewer command failed: ${viewer_cmd}"
-		exit ${EXIT_BAD_VIEWER}
+		exit ${exit_bad_viewer}
 	}
 }
 
 #-----------------------------
 # ----- Begin processing -----
 #-----------------------------
-PREVIEW_TOGGLE=false
-VERBOSE=false
-WATCH_MODE=false
+preview_toggle=false
+verbose=false
+watch_mode=false
 
 # ----- Get command line arguments -----
 
@@ -206,50 +187,50 @@ while getopts "hf:pt:c:wVv" option; do
 	case $option in
 		h)
 			print_help
-			exit ${EXIT_SUCCESS}
+			exit ${exit_success}
 			;;
 		c)
-			CONFIG_PATH=${OPTARG}
+			config_path=${OPTARG}
 			;;
 		f)
-			FORMAT=${OPTARG}
+			format=${OPTARG}
 			;;
 		p)
-			PREVIEW_TOGGLE=true
+			preview_toggle=true
 			;;
 		t)
-			TEMP_BASE=${OPTARG}
+			temp_base=${OPTARG}
 			;;
 		w)
-			WATCH_MODE=true
+			watch_mode=true
 			;;
 		V)
-			VERBOSE=true
+			verbose=true
 			;;
 		v)
-			echo $VERSION
-			exit ${EXIT_SUCCESS}
+			echo $version
+			exit ${exit_success}
 			;;
 	esac
 done
 
 # Remaining argument should be the name of the markdown file for input
 shift $(($OPTIND - 1))
-MDFILE=$1
+mdfile=$1
 
-if [ -z "$MDFILE" ]; then
+if [ -z "$mdfile" ]; then
 	echo "No input file specified"
-	exit ${EXIT_MISSING_MDFILE}
+	exit ${exit_missing_mdfile}
 fi
 
 # Expand to absolute path
-MDPATH=$(realpath $MDFILE)
+mdpath=$(realpath $mdfile)
 
 # ----- Load configuration -----
 
 # Read main config section and copy elements to array config_main
 declare -A config=()
-read_config ${CONFIG_PATH} "main"
+read_config ${config_path} "main"
 
 declare -A config_main
 for key in "${!config[@]}"; do
@@ -257,18 +238,18 @@ for key in "${!config[@]}"; do
 done
 
 # Check for default format in config if not specified on CLI
-if [ -z "$FORMAT" ]; then
+if [ -z "$format" ]; then
 	if [ "${config_main["default"]}" != "" ]; then
-		FORMAT=${config_main["default"]}
+		format=${config_main["default"]}
 	else
 		echo "No output format specified and no default set"
-		exit ${EXIT_MISSING_FORMAT}
+		exit ${exit_missing_format}
 	fi
 fi
 
 # Read format config section and copy elements to array config_main
 declare -A config=()
-read_config ${CONFIG_PATH} ${FORMAT}
+read_config ${config_path} ${format}
 
 declare -A config_format
 for key in "${!config[@]}"; do
@@ -276,64 +257,64 @@ for key in "${!config[@]}"; do
 done
 
 # TBD: handle if these are unspecified in config
-DEST_EXT=${config_format["ext"]}
-PANDOC_FLAGS="${config_main["flags"]} ${config_format["flags"]}"
-INTERVAL_PEEK=${config_main["peek"]}
-INTERVAL_REST=${config_main["rest"]}
-VIEWER_CMD=${config_format["view"]}
+dest_ext=${config_format["ext"]}
+pandoc_flags="${config_main["flags"]} ${config_format["flags"]}"
+interval_peek=${config_main["peek"]}
+interval_rest=${config_main["rest"]}
+viewer_cmd=${config_format["view"]}
 
 # ----- Set up output for watch mode -----
 # If watch mode is requested, output should go to a temporary area. Grab just
 # the filename part of the path. Create a temp folder which is (almost) unique
 # to the file's absolute path and the username. Otherwise output goes into cwd.
-if [ $WATCH_MODE == "true" ]; then
-	HASH=$(echo "${USER}-${MDPATH}" | md5sum - | cut -d' ' -f1 | cut -c1-8)
-	OUTDIR="${TEMP_BASE}/${HASH}"
-	mkdir -p ${OUTDIR} || {
-		echo "Could not create directory ${OUTDIR}"
-		exit ${EXIT_BAD_OUTDIR}
+if [ $watch_mode == "true" ]; then
+	mdhash=$(echo "${USER}-${mdpath}" | md5sum - | cut -d' ' -f1 | cut -c1-8)
+	outdir="${temp_base}/${mdhash}"
+	mkdir -p ${outdir} || {
+		echo "Could not create directory ${outdir}"
+		exit ${exit_bad_outdir}
 	}
-	trap "rm -rf ${OUTDIR}" EXIT
+	trap "rm -rf ${outdir}" EXIT
 else
-	OUTDIR="${PWD}"
+	outdir="${PWD}"
 fi
 
 # ----- Render -----
 # Change to dirname of the input file so we can use its relative path to find
 # bibliography and any other resouces.
-cd $(dirname $MDPATH)
-render ${MDPATH} ${OUTDIR} ${DEST_EXT} ${PANDOC_FLAGS} ${VERBOSE}
+cd $(dirname $mdpath)
+render "${mdpath}" "${outdir}" "${dest_ext}" "${pandoc_flags}" "${verbose}"
 
 # ----- Preview -----
 # Set preview mode based on watch interval and toggle it if requested
-[[ $WATCH_MODE == "true" ]] && PREVIEW=true || PREVIEW=false
+[[ $watch_mode == "true" ]] && preview_mode=true || preview_mode=false
 
-if [[ $PREVIEW_TOGGLE == "true" ]]; then
-	[[ $PREVIEW == "true" ]] && PREVIEW=false || PREVIEW=true
+if [[ $preview_toggle == "true" ]]; then
+	[[ $preview_mode == "true" ]] && preview_mode=false || preview_mode=true
 fi
 
 # Open previewer if the option was given.
-if [ $PREVIEW == "true" ]; then
-	preview "${OUTFILE}" "${VIEWER_CMD}" "${VERBOSE}"
+if [ $preview_mode == "true" ]; then
+	preview "${outfile}" "${viewer_cmd}" "${verbose}"
 fi
 
 # ----- Watch for changes -----
-if [ $WATCH_MODE == "false" ]; then
-	exit ${EXIT_SUCCESS}
+if [ $watch_mode == "false" ]; then
+	exit ${exit_success}
 fi
 
-THEN="$(stat -c "%Y" "${MDPATH}")"
+mod_prev="$(stat -c "%Y" "${mdpath}")"
 while true; do
-	sleep "$INTERVAL_PEEK"
-	NOW="$(stat -c "%Y" "${MDPATH}")"
+	sleep "$interval_peek"
+	mod_time="$(stat -c "%Y" "${mdpath}")"
 
-	if [[ "$NOW" != "$THEN" ]]; then
-		[[ $VERBOSE == "true" ]] && echo "${MDFILE} was modified ${NOW}"
-		render ${MDPATH} ${OUTDIR} ${DEST_EXT} ${PANDOC_FLAGS} ${VERBOSE}
-		THEN="$NOW"
-		sleep "$INTERVAL_REST"
+	if [[ "$mod_time" != "$mod_prev" ]]; then
+		[[ $verbose == "true" ]] && echo "${mdfile} was modified ${mod_time}"
+		render "${mdpath}" "${outdir}" "${dest_ext}" "${pandoc_flags}" "${verbose}"
+		mod_prev="$mod_time"
+		sleep "$interval_rest"
 	else
-		[[ $VERBOSE == "true" ]] && echo "${MDFILE} not modified"
+		[[ $verbose == "true" ]] && echo "${mdfile} not modified"
 	fi
 done
 
