@@ -7,6 +7,7 @@ exit_missing_format=254
 exit_bad_pandoc=252
 exit_bad_outdir=250
 exit_bad_viewer=248
+exit_bad_config=247
 
 progname=$(basename $0)
 version="0.1.0"
@@ -256,7 +257,6 @@ for key in "${!config[@]}"; do
 	config_format["$key"]="${config[$key]}"
 done
 
-# TBD: handle if these are unspecified in config
 dest_ext=${config_format["ext"]}
 pandoc_flags="${config_main["flags"]} ${config_format["flags"]}"
 interval_peek=${config_main["peek"]}
@@ -282,6 +282,10 @@ fi
 # ----- Render -----
 # Change to dirname of the input file so we can use its relative path to find
 # bibliography and any other resouces.
+if [ $dest_ext == "" ]; then
+	echo "${config_path}: 'ext' not found for '${format}' format"
+	exit ${exit_bad_config}
+fi
 cd $(dirname $mdpath)
 render "${mdpath}" "${outdir}" "${dest_ext}" "${pandoc_flags}" "${verbose}"
 
@@ -293,6 +297,11 @@ if [[ $preview_toggle == "true" ]]; then
 	[[ $preview_mode == "true" ]] && preview_mode=false || preview_mode=true
 fi
 
+if [ "$viewer_cmd" == "" ]; then
+	echo "${config_path}: 'view' not found for '${format}' format"
+	exit ${exit_bad_config}
+fi
+
 # Open previewer if the option was given.
 if [ $preview_mode == "true" ]; then
 	preview "${outfile}" "${viewer_cmd}" "${verbose}"
@@ -301,6 +310,16 @@ fi
 # ----- Watch for changes -----
 if [ $watch_mode == "false" ]; then
 	exit ${exit_success}
+fi
+
+if [ "$interval_peek" == "" ]; then
+	echo "${config_path}: 'peek' not found in 'main'"
+	exit ${exit_bad_config}
+fi
+
+if [ "$interval_rest" == "" ]; then
+	echo "${config_path}: 'rest' not found in 'main'"
+	exit ${exit_bad_config}
 fi
 
 mod_prev="$(stat -c "%Y" "${mdpath}")"
