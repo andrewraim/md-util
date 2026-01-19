@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# TBD:
+# - Use consistent capitalization
+
 # Exit codes
 EXIT_SUCCESS=0
 EXIT_MISSING_MDFILE=255
@@ -12,6 +15,7 @@ EXIT_NO_VIEWER=249
 EXIT_BAD_VIEWER=248
 
 PROGNAME=$(basename $0)
+VERSION="0.1.0"
 
 # Default path for temp materials. Use mktemp to find out where this is.
 TEMP_DRYRUN=$(mktemp -u)
@@ -25,17 +29,13 @@ CONFIG_PATH="./${PROGNAME}.conf"
 
 print_help()
 {
-	# TBD: generate the list of formats from the config file, if it's not too
-	# difficult ...
+	echo "$PROGNAME $VERSION: Render a markdown document with Pandoc."
+	echo ""
+	echo "Formats:"
+	print_formats ${CONFIG_PATH}
+	echo ""
 
 	cat <<- EOF
-	$PROGNAME: Render a markdown document with Pandoc.
-
-	Formats:
-	  - note: PDF document suitable for informal documents.
-	  - beamer: PDF slides using Beamer.
-	  - html: Standalone HTML document.
-
 	Includes the following customizations for Pandoc:
 	  - Use Pandoc config files from the folder $PANDOC_DIR
 	  - Enable pandoc-citeproc for citations to references
@@ -46,7 +46,8 @@ print_help()
 
 	OPTIONS:
 	  -h	   Print this message and exit
-	  -v	   Verbose mode, includes echoing Pandoc commands
+	  -v       Print version and exit
+	  -V	   Verbose: includes echoing Pandoc commands
 	  -p	   Toggle preview (default: true in watch mode and false otherwise)
 	  -f TYPE  Format: one of the format labels listed above
 	  -t DIR   Base directory for temporary materials in watch mode
@@ -55,6 +56,33 @@ print_help()
 	  -c PATH  Path to configuration file (default: ${CONFIG_PATH})
 	  -w       Enable watch mode
 	EOF
+}
+
+print_formats()
+{
+	local infile=$1
+	local line section name
+
+	while IFS= read -r line; do
+		# Ignore comment lines
+		if [[ "$line" =~ ^[[:space:]]*\# ]]; then
+			continue
+		fi
+
+		# [section]
+		if [[ "$line" =~ ^[[:space:]]*\[(.*)\][[:space:]]*$ ]]; then
+			section="${BASH_REMATCH[1]}"
+			continue
+		fi
+
+		# This line is relevant to the section. Process it.
+		if [[ $line =~ ^[[:space:]]*desc[[:space:]]*=[[:space:]]*(.*)$ ]]; then
+			value=${BASH_REMATCH[1]}
+			echo "  - ${section}: ${value}"
+		fi
+	done < ${infile}
+
+	# Output: FORMATS
 }
 
 ## This function was adapted from a Reddit comment:
@@ -165,16 +193,16 @@ preview()
 }
 
 #-----------------------------
-# ----- Begin Processing -----
+# ----- Begin processing -----
 #-----------------------------
 PREVIEW_TOGGLE=false
 VERBOSE=false
 WATCH_MODE=false
 
-# ----- Get Command Line Arguments -----
+# ----- Get command line arguments -----
 
 # Get the options
-while getopts "hf:pt:c:wv" option; do
+while getopts "hf:pt:c:wVv" option; do
 	case $option in
 		h)
 			print_help
@@ -195,8 +223,12 @@ while getopts "hf:pt:c:wv" option; do
 		w)
 			WATCH_MODE=true
 			;;
-		v)
+		V)
 			VERBOSE=true
+			;;
+		v)
+			echo $VERSION
+			exit ${EXIT_SUCCESS}
 			;;
 	esac
 done
@@ -213,7 +245,7 @@ fi
 # Expand to absolute path
 MDPATH=$(realpath $MDFILE)
 
-# ----- Load Configuration -----
+# ----- Load configuration -----
 
 # Read main config section and copy elements to array config_main
 declare -A config=()
@@ -223,10 +255,6 @@ declare -A config_main
 for key in "${!config[@]}"; do
 	config_main["$key"]="${config[$key]}"
 done
-
-echo
-echo "main keys: ${!config_main[@]}"
-echo "main values: ${config_main[@]}"
 
 # Check for default format in config if not specified on CLI
 if [ -z "$FORMAT" ]; then
@@ -245,13 +273,7 @@ read_config ${CONFIG_PATH} ${FORMAT}
 declare -A config_format
 for key in "${!config[@]}"; do
 	config_format["$key"]="${config[$key]}"
-	echo "config_format key: '$key'"
 done
-
-echo
-echo "format keys: ${!config_format[@]}"
-echo "format values: ${config_format[@]}"
-echo
 
 # TBD: handle if these are unspecified in config
 DEST_EXT=${config_format["ext"]}
@@ -260,10 +282,7 @@ INTERVAL_PEEK=${config_main["peek"]}
 INTERVAL_REST=${config_main["rest"]}
 VIEWER_CMD=${config_format["view"]}
 
-echo "DEST_EXT: '${DEST_EXT}'"
-echo "PANDOC_FLAGS: '${PANDOC_FLAGS}'"
-
-# ----- Set Up Output for Watch Mode -----
+# ----- Set up output for watch mode -----
 # If watch mode is requested, output should go to a temporary area. Grab just
 # the filename part of the path. Create a temp folder which is (almost) unique
 # to the file's absolute path and the username. Otherwise output goes into cwd.
@@ -283,7 +302,6 @@ fi
 # Change to dirname of the input file so we can use its relative path to find
 # bibliography and any other resouces.
 cd $(dirname $MDPATH)
-
 render ${MDPATH} ${OUTDIR} ${DEST_EXT} ${PANDOC_FLAGS} ${VERBOSE}
 
 # ----- Preview -----
@@ -299,7 +317,7 @@ if [ $PREVIEW == "true" ]; then
 	preview "${OUTFILE}" "${VIEWER_CMD}" "${VERBOSE}"
 fi
 
-# ----- Watch for Changes -----
+# ----- Watch for changes -----
 if [ $WATCH_MODE == "false" ]; then
 	exit ${EXIT_SUCCESS}
 fi
@@ -311,7 +329,7 @@ while true; do
 
 	if [[ "$NOW" != "$THEN" ]]; then
 		[[ $VERBOSE == "true" ]] && echo "${MDFILE} was modified ${NOW}"
-		render ${MDPATH} ${OUTDIR} ${FORMAT} ${VERBOSE}
+		render ${MDPATH} ${OUTDIR} ${DEST_EXT} ${PANDOC_FLAGS} ${VERBOSE}
 		THEN="$NOW"
 		sleep "$INTERVAL_REST"
 	else
