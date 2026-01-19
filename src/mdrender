@@ -20,6 +20,9 @@ TEMP_BASE=$(dirname ${TEMP_DRYRUN})
 # This is the location of pandoc template contents.
 PANDOC_DIR=$HOME/.local/share/pandoc
 
+# Default configuration path
+CONFIG_PATH="${PROGNAME}.conf"
+
 print_help()
 {
 	cat <<- EOF
@@ -39,14 +42,64 @@ print_help()
 	Usage: $PROGNAME [OPTIONS] input
 
 	OPTIONS:
-	  -h       Print this message and exit
-	  -v       Verbose: echo Pandoc commands
-	  -p       Toggle preview (default: true in watch mode and false otherwise)
+	  -h	   Print this message and exit
+	  -v	   Verbose: echo Pandoc commands
+	  -p	   Toggle preview (default: true in watch mode and false otherwise)
 	  -f TYPE  Format: one of 'note', 'beamer', or 'html'
 	  -t DIR   Base directory for temporary materials in watch mode (default:
-	           ${TEMP_BASE}). When not in watch mode, output is written to cwd.
+		       ${TEMP_BASE}). When not in watch mode, output is written to cwd.
 	  -w SEC   Watch source file (every SEC seconds) and re-render if changed
+	  -c PATH  Path to configuration file (default: ${CONFIG_PATH})
 	EOF
+}
+
+## Lightly adapted from:
+## https://www.reddit.com/r/bash/comments/s6crjo/comment/ht3vrh1
+read_config()
+{
+	local infile=$1
+	local section=$2
+	local in_section=0
+	local line name value
+
+	while IFS= read -r line; do
+		# Ignore comment lines
+		if [[ "$line" =~ ^[[:space:]]*\# ]]; then
+			continue
+		fi
+
+		# [section]
+		if [[ "$line" =~ ^[[:space:]]*\[(.*)\][[:space:]]*$ ]]; then
+			[[ "${BASH_REMATCH[1]}" == "$section" ]] && in_section=1 || in_section=0
+			continue
+		fi
+
+		# If this was not a section marker, and we are not in the section of
+		# interest, skip this line
+		if ((!in_section)); then
+			continue
+		fi
+
+		# This line is relevant to the section. Process it.
+		if [[ $line =~ ^[[:space:]]*$ ]]; then
+			# Ignore empty line
+			# echo "E"
+			continue
+		elif [[ $line =~ ^[[:space:]]+(.*)$ ]]; then
+			# Continuation of a previous line starts with indentation.
+			# Use the same key from the last step and append the new material.
+			# echo "C : $line"
+			config[$name]="${config[$name]}$line"
+		elif [[ $line =~ ^[[:space:]]*([^=]*)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
+			# New configuration item
+			name=${BASH_REMATCH[1]}
+			value=${BASH_REMATCH[2]}
+			# echo "N : $name => $value"
+			config[$name]="$value"
+		fi
+
+		# Need to read continuation lines (and maybe add backslash, or not have them)
+	done < ${infile}
 }
 
 render()
@@ -212,11 +265,14 @@ PREVIEW_TOGGLE=false
 VERBOSE=false
 
 # Get the options
-while getopts "hf:pt:w:v" option; do
+while getopts "hf:pt:w:c:v" option; do
 	case $option in
 		h)
 			print_help
 			exit ${EXIT_SUCCESS}
+			;;
+		c)
+			CONFIG_PATH=${OPTARG}
 			;;
 		f)
 			FORMAT=${OPTARG}
@@ -247,6 +303,40 @@ fi
 
 # Expand to absolute path
 MDPATH=$(realpath $MDFILE)
+
+
+# Read main config section and copy elements to array config_main
+declare -A config=()
+read_config ${CONFIG_PATH} "main"
+
+declare -A config_main
+for key in "${!config[@]}"; do
+	config_main["$key"]="${config[$key]}"
+done
+
+# Read format config section and copy elements to array config_main
+declare -A config=()
+read_config ${CONFIG_PATH} ${FORMAT}
+
+declare -A config_format
+for key in "${!config[@]}"; do
+	config_format["$key"]="${config[$key]}"
+done
+
+#echo
+#echo "${config[@]}"
+#echo "FLAGS?"
+#flags=${config["flags"]}
+#echo "$flags: $flags"
+#echo "keys: ${!config[@]}"
+#echo "values: ${config[@]}"
+#echo
+#echo "main keys: ${!config_main[@]}"
+#echo "main values: ${config_main[@]}"
+#echo
+#echo "format keys: ${!config_format[@]}"
+#echo "format values: ${config_format[@]}"
+exit 0
 
 # If watch mode is requested, output should go to a temporary area. Grab just
 # the filename part of the path. Create a temp folder which is (almost) unique
