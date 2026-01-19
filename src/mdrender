@@ -33,11 +33,13 @@ print_help()
 	OPTIONS:
 	  -f TYPE  Format: one of the format labels listed above
 	  -w       Enable watch mode
+	  -o FILE  Path of output file (default: save file to cwd with an
+	           appropriate extension)
 	  -p	   Toggle preview (default: true in watch mode and false otherwise)
 	  -c PATH  Path to configuration file (default: ${config_path})
 	  -t DIR   Base directory for temporary materials in watch mode
 	           (default: ${temp_base}). When not in watch mode, output is
-	           written to cwd.
+	           written to cwd
 	  -V	   Verbose: includes echoing Pandoc commands
 	  -h	   Print usage and exit
 	  -v       Print VERSION and exit
@@ -120,22 +122,9 @@ read_config()
 render()
 {
 	local mdpath=$1
-	local outdir=$2
-	local dest_ext=$3
-	local pandoc_flags=$4
-	local verbose=$5
-
-	local src_ext=${mdpath##*.}
-	local base=$(basename $mdpath)
-
-	# name the output file
-	if [ $base != $src_ext ]; then
-		# replace extension of input file with "pdf"
-		outfile=${outdir}/${base%$src_ext}${dest_ext}
-	else
-		# there was no extension on input file, so add a ".pdf" to the output
-		outfile=${outdir}/${base}.${dest_ext}
-	fi
+	local outfile=$2
+	local pandoc_flags=$3
+	local verbose=$4
 
 	local cmd="pandoc $mdpath $pandoc_flags -o $outfile"
 
@@ -184,7 +173,7 @@ watch_mode=false
 # ----- Get command line arguments -----
 
 # Get the options
-while getopts "hf:pt:c:wVv" option; do
+while getopts "hf:po:t:c:wVv" option; do
 	case $option in
 		h)
 			print_help
@@ -195,6 +184,9 @@ while getopts "hf:pt:c:wVv" option; do
 			;;
 		f)
 			format=${OPTARG}
+			;;
+		o)
+			outfile=${OPTARG}
 			;;
 		p)
 			preview_toggle=true
@@ -228,7 +220,6 @@ fi
 mdpath=$(realpath $mdfile)
 
 # ----- Load configuration -----
-
 # Read main config section and copy elements to array config_main
 declare -A config=()
 read_config ${config_path} "main"
@@ -248,7 +239,7 @@ if [ -z "$format" ]; then
 	fi
 fi
 
-# Read format config section and copy elements to array config_main
+# Read format config section and copy elements to array config_format
 declare -A config=()
 read_config ${config_path} ${format}
 
@@ -257,37 +248,39 @@ for key in "${!config[@]}"; do
 	config_format["$key"]="${config[$key]}"
 done
 
+# Try to avoid error checking on these until/unless they are needed
 dest_ext=${config_format["ext"]}
 pandoc_flags="${config_main["flags"]} ${config_format["flags"]}"
 interval_peek=${config_main["peek"]}
 interval_rest=${config_main["rest"]}
 viewer_cmd=${config_format["view"]}
 
-# ----- Set up output for watch mode -----
-# If watch mode is requested, output should go to a temporary area. Grab just
-# the filename part of the path. Create a temp folder which is (almost) unique
-# to the file's absolute path and the username. Otherwise output goes into cwd.
-if [ $watch_mode == "true" ]; then
-	mdhash=$(echo "${USER}-${mdpath}" | md5sum - | cut -d' ' -f1 | cut -c1-8)
-	outdir="${temp_base}/${mdhash}"
-	mkdir -p ${outdir} || {
-		echo "Could not create directory ${outdir}"
-		exit ${exit_bad_outdir}
-	}
-	trap "rm -rf ${outdir}" EXIT
-else
-	outdir="${PWD}"
+# ----- Output filename -----
+# Name the output file if not specified as an argument
+if [ ! -v outfile ]; then
+	if [ $dest_ext == "" ]; then
+		echo "${config_path}: 'ext' not found for '${format}' format"
+		exit ${exit_bad_config}
+	fi
+
+	base=$(basename $mdpath)
+	src_ext=${base##*.}
+
+	if [ $base != $src_ext ]; then
+		# replace extension of input file with $dest_ext
+		outfile=${PWD}/${base%$src_ext}${dest_ext}
+	else
+		# there was no extension on input file, so add a ".pdf" to the output
+		outfile=${PWD}/${base}.${dest_ext}
+	fi
 fi
 
 # ----- Render -----
 # Change to dirname of the input file so we can use its relative path to find
 # bibliography and any other resouces.
-if [ $dest_ext == "" ]; then
-	echo "${config_path}: 'ext' not found for '${format}' format"
-	exit ${exit_bad_config}
-fi
+
 cd $(dirname $mdpath)
-render "${mdpath}" "${outdir}" "${dest_ext}" "${pandoc_flags}" "${verbose}"
+render "${mdpath}" "${outfile}" "${pandoc_flags}" "${verbose}"
 
 # ----- Preview -----
 # Set preview mode based on watch interval and toggle it if requested
