@@ -48,7 +48,6 @@ print_help()
 	  -f TYPE  Format: one of 'note', 'beamer', or 'html'
 	  -t DIR   Base directory for temporary materials in watch mode (default:
 		       ${TEMP_BASE}). When not in watch mode, output is written to cwd.
-	  -w SEC   Watch source file (every SEC seconds) and re-render if changed
 	  -c PATH  Path to configuration file (default: ${CONFIG_PATH})
 	EOF
 }
@@ -90,9 +89,10 @@ read_config()
 			# Use the same key from the last step and append the new material.
 			# echo "C : $line"
 			config[$name]="${config[$name]}$line"
-		elif [[ $line =~ ^[[:space:]]*([^=]*)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
-			# New configuration item
+		elif [[ $line =~ ^[[:space:]]*([^=]*)=[[:space:]]*(.*)$ ]]; then
+			# New configuration item. Strip trailing whitespace from name
 			name=${BASH_REMATCH[1]}
+			name="${name%"${name##*[![:space:]]}"}"
 			value=${BASH_REMATCH[2]}
 			# echo "N : $name => $value"
 			config[$name]="$value"
@@ -106,31 +106,30 @@ render()
 {
 	local mdpath=$1
 	local outdir=$2
-	local format=$3
-	local verbose=$4
+	local dest_ext=$3
+	local pandoc_flags=$4
+	local verbose=$5
 
-	case ${format} in
-		note)
-			render_note_cmd ${mdpath} ${outdir}
-			;;
-		beamer)
-			render_beamer_cmd ${mdpath} ${outdir}
-			;;
-		html)
-			render_html_cmd ${mdpath} ${outdir}
-			;;
-		*)
-			echo "Format ${format} not recognized"
-			exit ${EXIT_BAD_FORMAT}
-			;;
-	esac
+	local src_ext=${mdpath##*.}
+	local base=$(basename $mdpath)
+
+	# name the output file
+	if [ $base != $src_ext ]; then
+		# replace extension of input file with "pdf"
+		outfile=${outdir}/${base%$src_ext}${dest_ext}
+	else
+		# there was no extension on input file, so add a ".pdf" to the output
+		outfile=${outdir}/${base}.${dest_ext}
+	fi
+
+	cmd="pandoc $mdpath $pandoc_flags -o $outfile"
 
 	# Echo the pandoc command if verbose option was enabled
 	if [ $verbose == "true" ]; then
-		echo $CMD
+		echo $cmd
 	fi
 
-	eval $CMD || {
+	eval $cmd || {
 		exit ${EXIT_PANDOC_ERROR}
 	}
 }
@@ -143,26 +142,26 @@ render_note_cmd()
 	local ext=${infile##*.}
 	local base=$(basename $infile)
 
-	# Name the output file
+	# name the output file
 	if [ $base != $ext ]; then
-		# Replace extension of input file with "pdf"
-		OUTFILE=${outdir}/${base%$ext}pdf
+		# replace extension of input file with "pdf"
+		outfile=${outdir}/${base%$ext}pdf
 	else
-		# There was no extension on input file, so add a ".pdf" to the output
-		OUTFILE=${outdir}/${base}.pdf
+		# there was no extension on input file, so add a ".pdf" to the output
+		outfile=${outdir}/${base}.pdf
 	fi
 
-	read -r -d '' CMD <<- EOM
+	read -r -d '' cmd <<- eom
 	pandoc $infile \
-	  --data-dir=$PANDOC_DIR \
+	  --data-dir=$pandoc_dir \
 	  --defaults=my-latex \
 	  --citeproc \
 	  --metadata link-citations=true \
-	  --metadata reference-section-title=References \
-	  -f markdown -t latex -s -o $OUTFILE
-	EOM
+	  --metadata reference-section-title=references \
+	  -f markdown -t latex -s -o $outfile
+	eom
 
-	# Outputs: CMD, OUTFILE
+	# outputs: cmd, outfile
 }
 
 render_beamer_cmd()
@@ -263,9 +262,12 @@ preview()
 
 PREVIEW_TOGGLE=false
 VERBOSE=false
+WATCH_MODE=false
+
+# ----- Get Command Line Arguments -----
 
 # Get the options
-while getopts "hf:pt:w:c:v" option; do
+while getopts "hf:pt:c:wv" option; do
 	case $option in
 		h)
 			print_help
@@ -284,7 +286,7 @@ while getopts "hf:pt:w:c:v" option; do
 			TEMP_BASE=${OPTARG}
 			;;
 		w)
-			WATCH_INTERVAL=${OPTARG}
+			WATCH_MODE=true
 			;;
 		v)
 			VERBOSE=true
@@ -304,6 +306,7 @@ fi
 # Expand to absolute path
 MDPATH=$(realpath $MDFILE)
 
+# ----- Load Configuration -----
 
 # Read main config section and copy elements to array config_main
 declare -A config=()
@@ -314,6 +317,12 @@ for key in "${!config[@]}"; do
 	config_main["$key"]="${config[$key]}"
 done
 
+# TBD: check for default format in config if not specified on CLI
+if [ -z "$FORMAT" ]; then
+	echo "No output format specified"
+	exit ${EXIT_MISSING_FORMAT}
+fi
+
 # Read format config section and copy elements to array config_main
 declare -A config=()
 read_config ${CONFIG_PATH} ${FORMAT}
@@ -321,6 +330,7 @@ read_config ${CONFIG_PATH} ${FORMAT}
 declare -A config_format
 for key in "${!config[@]}"; do
 	config_format["$key"]="${config[$key]}"
+	echo "config_format key: '$key'"
 done
 
 #echo
@@ -330,20 +340,28 @@ done
 #echo "$flags: $flags"
 #echo "keys: ${!config[@]}"
 #echo "values: ${config[@]}"
-#echo
-#echo "main keys: ${!config_main[@]}"
-#echo "main values: ${config_main[@]}"
-#echo
-#echo "format keys: ${!config_format[@]}"
-#echo "format values: ${config_format[@]}"
-exit 0
+echo
+echo "main keys: ${!config_main[@]}"
+echo "main values: ${config_main[@]}"
+echo
+echo "format keys: ${!config_format[@]}"
+echo "format values: ${config_format[@]}"
+echo
 
+# TBD: handle if these are unspecified in config
+DEST_EXT=${config_format["ext"]}
+PANDOC_FLAGS="${config_main["flags"]} ${config_format["flags"]}"
+INTERVAL_PEEK=${config_main["peek"]}
+INTERVAL_REST=${config_main["rest"]}
+
+echo "DEST_EXT: '${DEST_EXT}'"
+echo "PANDOC_FLAGS: '${PANDOC_FLAGS}'"
+
+# ----- Set Up Output for Watch Mode -----
 # If watch mode is requested, output should go to a temporary area. Grab just
 # the filename part of the path. Create a temp folder which is (almost) unique
-# to the file's absolute path and the username.
-#
-# Otherwise output goes into cwd.
-if [ -v WATCH_INTERVAL ]; then
+# to the file's absolute path and the username. Otherwise output goes into cwd.
+if [ $WATCH_MODE == "true" ]; then
 	HASH=$(echo "${USER}-${MDPATH}" | md5sum - | cut -d' ' -f1 | cut -c1-8)
 	OUTDIR="${TEMP_BASE}/${HASH}"
 	mkdir -p ${OUTDIR} || {
@@ -355,19 +373,16 @@ else
 	OUTDIR="${PWD}"
 fi
 
-if [ -z "$FORMAT" ]; then
-	echo "No output format specified"
-	exit ${EXIT_MISSING_FORMAT}
-fi
-
+# ----- Render -----
 # Change to dirname of the input file so we can use its relative path to find
 # bibliography and any other resouces.
 cd $(dirname $MDPATH)
 
-render ${MDPATH} ${OUTDIR} ${FORMAT} ${VERBOSE}
+render ${MDPATH} ${OUTDIR} ${DEST_EXT} ${PANDOC_FLAGS} ${VERBOSE}
 
+# ----- Preview -----
 # Set preview mode based on watch interval and toggle it if requested
-[[ -v WATCH_INTERVAL ]] && PREVIEW=true || PREVIEW=false
+[[ $WATCH_MODE == "true" ]] && PREVIEW=true || PREVIEW=false
 
 if [[ $PREVIEW_TOGGLE == "true" ]]; then
 	[[ $PREVIEW == "true" ]] && PREVIEW=false || PREVIEW=true
@@ -378,19 +393,23 @@ if [ $PREVIEW == "true" ]; then
 	preview ${OUTFILE} ${VERBOSE}
 fi
 
-if [ -v WATCH_INTERVAL ]; then
-	THEN="$(stat -c "%Y" "${MDPATH}")"
-	while true; do
-		sleep "$WATCH_INTERVAL"
-		NOW="$(stat -c "%Y" "${MDPATH}")"
-
-		if [[ "$NOW" != "$THEN" ]]; then
-			[[ $VERBOSE == "true" ]] && echo "${MDFILE} was modified ${NOW}"
-			render ${MDPATH} ${OUTDIR} ${FORMAT} ${VERBOSE}
-			THEN="$NOW"
-		else
-			[[ $VERBOSE == "true" ]] && echo "${MDFILE} not modified"
-		fi
-	done
+# ----- Watch for Changes -----
+if [ $WATCH_MODE == "false" ]; then
+	exit EXIT_SUCCESS
 fi
+
+THEN="$(stat -c "%Y" "${MDPATH}")"
+while true; do
+	sleep "$INTERVAL_PEEK"
+	NOW="$(stat -c "%Y" "${MDPATH}")"
+
+	if [[ "$NOW" != "$THEN" ]]; then
+		[[ $VERBOSE == "true" ]] && echo "${MDFILE} was modified ${NOW}"
+		render ${MDPATH} ${OUTDIR} ${FORMAT} ${VERBOSE}
+		THEN="$NOW"
+		sleep "$INTERVAL_REST"
+	else
+		[[ $VERBOSE == "true" ]] && echo "${MDFILE} not modified"
+	fi
+done
 
