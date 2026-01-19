@@ -17,14 +17,23 @@ temp_dryrun=$(mktemp -u)
 temp_base=$(dirname ${temp_dryrun})
 
 # Default configuration path
-config_path="./${progname}.conf"
+config_path="~/.config/${progname}.conf"
 
 print_help()
 {
 	echo "$progname $version: Render a markdown document with Pandoc."
 	echo ""
-	echo "Formats:"
-	print_formats ${config_path}
+
+	# Expand tilde to HOME if it's in the path
+	config_path=${config_path/#\~/$HOME}
+
+	if [ -f "${config_path}" ]; then
+		echo "Formats:"
+		print_formats "${config_path}"
+	else
+		echo "[Config file ${config_path} not found]"
+	fi
+
 	echo ""
 
 	cat <<- EOF
