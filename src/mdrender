@@ -12,10 +12,6 @@ exit_bad_config=247
 progname=$(basename $0)
 version="0.1.0"
 
-# Default path for temp materials. Use mktemp to find out where this is.
-temp_dryrun=$(mktemp -u)
-temp_base=$(dirname ${temp_dryrun})
-
 # Default configuration path
 config_path="~/.config/${progname}.conf"
 
@@ -24,14 +20,11 @@ print_help()
 	echo "$progname $version: Render a markdown document with Pandoc."
 	echo ""
 
-	# Expand tilde to HOME if it's in the path
-	config_path=${config_path/#\~/$HOME}
-
 	if [ -f "${config_path}" ]; then
-		echo "Formats:"
+		echo "FORMATS"
 		print_formats "${config_path}"
 	else
-		echo "[Config file ${config_path} not found]"
+		echo "[Config file not found at ${config_path}]"
 	fi
 
 	echo ""
@@ -39,25 +32,23 @@ print_help()
 	cat <<- EOF
 	Usage: $progname [OPTIONS] input
 
-	OPTIONS:
-	  -f TYPE  Format: one of the format labels listed above
-	  -w       Enable watch mode
-	  -o FILE  Path of output file (default: save file to cwd with an
-	           appropriate extension)
-	  -p	   Toggle preview (default: true in watch mode and false otherwise)
-	  -c PATH  Path to configuration file (default: ${config_path})
-	  -t DIR   Base directory for temporary materials in watch mode
-	           (default: ${temp_base}). When not in watch mode, output is
-	           written to cwd
-	  -V	   Verbose: includes echoing Pandoc commands
-	  -h	   Print usage and exit
-	  -v       Print VERSION and exit
+	OPTIONS
+	  -c PATH   Path to configuration file (default: ${config_path})
+	  -f FORMAT One of the format labels listed above
+	  -h	    Print usage and exit
+	  -o FILE   Path of output file (default: save file to cwd with configured
+	            extension)
+	  -p	    Toggle preview (default: true in watch mode, false otherwise)
+	  -v        Print version and exit
+	  -V	    Verbose: includes echoing Pandoc commands
+	  -w        Enable watch mode
 	EOF
 }
 
 print_formats()
 {
-	local infile=$1
+	# Expand tilde to HOME if it's in the path
+	local infile=${1/#\~/$HOME}
 	local line section name
 
 	while IFS= read -r line; do
@@ -84,7 +75,8 @@ print_formats()
 ## https://www.reddit.com/r/bash/comments/s6crjo/comment/ht3vrh1
 read_config()
 {
-	local infile=$1
+	# Expand tilde to HOME if it's in the path
+	local infile=${1/#\~/$HOME}
 	local section=$2
 	local in_section=0
 	local line name value
@@ -199,9 +191,6 @@ while getopts "hf:po:t:c:wVv" option; do
 			;;
 		p)
 			preview_toggle=true
-			;;
-		t)
-			temp_base=${OPTARG}
 			;;
 		w)
 			watch_mode=true
