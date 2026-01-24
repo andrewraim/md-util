@@ -127,7 +127,7 @@ render()
 	local pandoc_flags=$3
 	local verbose=$4
 
-	local cmd="pandoc $mdpath $pandoc_flags -o $outfile"
+	local cmd="pandoc ${mdpath} ${pandoc_flags} -o ${outfile}"
 
 	# Echo the pandoc command if verbose option was enabled
 	if [ $verbose == "true" ]; then
