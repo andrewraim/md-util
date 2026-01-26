@@ -118,6 +118,12 @@ read_config()
 			config[$name]="$value"
 		fi
 	done < ${infile}
+
+	# If config array is still empty, the format was not found
+	if [ ${#config[@]} -eq 0 ]; then
+		echo "Format '${section}' not found"
+		exit $exit_missing_format
+	fi
 }
 
 render()
@@ -256,7 +262,7 @@ viewer_cmd=${config_format["view"]}
 # ----- Output filename -----
 # Name the output file if not specified as an argument
 if [ ! -v outfile ]; then
-	if [ $dest_ext == "" ]; then
+	if [ "$dest_ext" == "" ]; then
 		echo "${config_path}: 'ext' not found for '${format}' format"
 		exit ${exit_bad_config}
 	fi
