@@ -59,6 +59,12 @@ print_formats()
 
 		# [section]
 		if [[ "$line" =~ ^[[:space:]]*\[(.*)\][[:space:]]*$ ]]; then
+			if [[ -z ${value+x} ]] && [[ -n "$section" ]] &&
+			[[ $section != "main" ]]; then
+				# If we were in a format section (not "main") that didn't have
+				# a description, print something to indicate that.
+				echo "  - ${section}: (No description given)"
+			fi
 			section="${BASH_REMATCH[1]}"
 			continue
 		fi
