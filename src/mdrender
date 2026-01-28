@@ -10,23 +10,16 @@ exit_bad_viewer=248
 exit_bad_config=247
 
 progname=$(basename $0)
-version="0.1.0"
+version="0.1.1"
 
 # Default configuration path
 config_path="~/.config/${progname}.conf"
 
 print_help()
 {
-	echo "$progname $version: Render a markdown document with Pandoc."
+	echo "$progname $version: Render a markdown document with Pandoc"
 	echo ""
-
-	if [ -f "${config_path}" ]; then
-		echo "FORMATS"
-		print_formats "${config_path}"
-	else
-		echo "[Config file not found at ${config_path}]"
-	fi
-
+	print_formats "${config_path}"
 	echo ""
 
 	cat <<- EOF
@@ -51,6 +44,11 @@ print_formats()
 	local infile=${1/#\~/$HOME}
 	local line section name
 
+	if [ ! -f "${infile}" ]; then
+		echo "[Config file not found at ${config_path}]"
+		return
+	fi
+
 	while IFS= read -r line; do
 		# Ignore comment lines
 		if [[ "$line" =~ ^[[:space:]]*\# ]]; then
@@ -74,7 +72,17 @@ print_formats()
 			value=${BASH_REMATCH[1]}
 			echo "  - ${section}: ${value}"
 		fi
+
+		# Check for a default format
+		if [[ $line =~ ^[[:space:]]*default[[:space:]]*=[[:space:]]*(.*)$ ]]; then
+			default=${BASH_REMATCH[1]}
+		fi
 	done < ${infile}
+
+	if [[ -v default ]]; then
+		echo ""
+		echo "Default: ${default}"
+	fi
 }
 
 ## This function was adapted from a Reddit comment:
@@ -332,7 +340,7 @@ while true; do
 
 	if [[ "$mod_time" != "$mod_prev" ]]; then
 		[[ $verbose == "true" ]] && echo "${mdfile} was modified ${mod_time}"
-		render "${mdpath}" "${outdir}" "${dest_ext}" "${pandoc_flags}" "${verbose}"
+		render "${mdpath}" "${outfile}" "${pandoc_flags}" "${verbose}"
 		mod_prev="$mod_time"
 		sleep "$interval_rest"
 	else

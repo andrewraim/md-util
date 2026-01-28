@@ -100,6 +100,21 @@ Comment=A text web browser
 Exec=lynx
 ```
 
+# Auto Refresh
+
+Some preview tools such as Zathura automatically refresh when the underlying
+document has changed. This helps to preview a document as we are working on it.
+Web browsers typically do not this without extensions, but we can request the
+document be automatically refreshed by adding the following metadata.
+
+```html
+<meta http-equiv="refresh" content="1">
+```
+
+The value `1` here instructs the browser to reload every one second. Inserting
+this metadata can be accomplished using the `header-includes` argument to
+pandoc, as shown in the example configuration.
+
 # Also See
 
 - [Glow](https://github.com/charmbracelet/glow): A terminal-based markdown
