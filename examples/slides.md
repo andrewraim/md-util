@@ -1,6 +1,7 @@
 ---
 title: Example Slides
 author: Your Name
+institute: Your Institute
 date: 1970-01-01
 bibliography: references.bib
 ---
@@ -31,4 +32,6 @@ $$
 
 - Here are conclusions.
 - Thank you.
+
+## References
 

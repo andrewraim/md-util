@@ -44,6 +44,20 @@ $ mdrender -f beamer examples/slides.md
 
 Run the command with `-h` for further information.
 
+# Custom Slide Theme
+
+Here is a note on how to use my nonstandard Beamer [theme][beamerthemeraim]
+with `slides.md` in the examples. Download the theme `sty` file to the folder
+with `slides.md`. Add the following to the YAML portion of the markdown source.
+
+```markdown
+theme: raim
+```
+
+The slides should now render with the custom theme.
+
+[beamerthemeraim]: https://github.com/andrewraim/beamerthemeraim
+
 # Previewing
 
 The script has a preview mode that renders the PDF or HTML output to a
