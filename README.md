@@ -25,7 +25,7 @@ output can be somewhat involved.
 Clone the repo.
 
 ```bash
-$ git clone https://github.com/andrewraim/md-util
+$ git clone https://github.com/andrewraim/panc
 ```
 
 Run `make` to install the scripts to `~/.local`. To invoke the scripts as
@@ -39,7 +39,7 @@ $ export PATH=$HOME/.local/bin:$PATH
 This should make the new command accessible.
 
 ```bash
-$ mdrender -f beamer examples/slides.md
+$ panc -f beamer examples/slides.md
 ```
 
 Run the command with `-h` for further information.

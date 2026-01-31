@@ -2,8 +2,8 @@ DEST := $(HOME)/.local
 BIN := $(DEST)/bin
 CONFIG := $(HOME)/.config
 
-SCRIPTS := src/mdrender
-CONFIGS := src/mdrender.conf
+SCRIPTS := src/panc
+CONFIGS := src/panc.conf
 
 .PHONY: install uninstall
 
